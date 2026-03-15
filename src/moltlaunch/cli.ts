@@ -30,12 +30,18 @@ async function mltl<T>(
 ): Promise<T> {
   try {
     // --json is a per-subcommand flag, appended at the end
-    const { stdout } = await execFileAsync(MLTL_BIN, [...args, "--json"], {
+    const { stdout, stderr } = await execFileAsync(MLTL_BIN, [...args, "--json"], {
       timeout,
       env: { ...process.env },
     });
 
-    const parsed = JSON.parse(stdout.trim()) as T | CliError;
+    // Try to parse stdout as JSON
+    const trimmed = stdout.trim();
+    if (!trimmed) {
+      throw new Error(`mltl returned no output. stderr: ${stderr.trim()}`);
+    }
+
+    const parsed = JSON.parse(trimmed) as T | CliError;
 
     if (
       parsed !== null &&
@@ -57,7 +63,10 @@ async function mltl<T>(
           "mltl CLI not found. Install it with: npm install -g @moltlaunch/cli",
         );
       }
-      throw new Error(`mltl error: ${err.message}`);
+      // Include stderr in error message for debugging
+      const stderr = "stderr" in err ? String((err as { stderr?: unknown }).stderr).trim() : "";
+      const detail = stderr ? ` | stderr: ${stderr}` : "";
+      throw new Error(`mltl error: ${err.message}${detail}`);
     }
     throw err;
   }
