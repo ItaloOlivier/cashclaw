@@ -2,18 +2,20 @@ import WebSocket from "ws";
 import type { CashClawConfig } from "./config.js";
 import type { LLMProvider } from "./llm/types.js";
 import type { Task } from "./moltlaunch/types.js";
-import * as cli from "./moltlaunch/cli.js";
 import { createLLMProvider } from "./llm/index.js";
 import { selectModel, type RoutingInput } from "./llm/router.js";
 import { runAgentLoop, type LoopResult } from "./loop/index.js";
 import * as paperclipClient from "./paperclip/client.js";
-import { issueToTask } from "./paperclip/mapper.js";
 import { estimateCostUsd } from "./llm/cost.js";
 import { runStudySession } from "./loop/study.js";
 import { storeFeedback } from "./memory/feedback.js";
 import { appendLog } from "./memory/log.js";
 import { preQuoteHook, preWorkHook, postCompleteHook } from "./mirofish/hooks.js";
 import { isMiroFishAvailable } from "./mirofish/client.js";
+import type { TaskSource } from "./sources/interface.js";
+import { createMoltlaunchSource } from "./sources/moltlaunch.js";
+import { createPaperclipSource } from "./sources/paperclip.js";
+import { createDirectSource } from "./sources/direct.js";
 
 export interface HeartbeatState {
   running: boolean;
@@ -62,6 +64,12 @@ export function createHeartbeat(
   config: CashClawConfig,
   llm: LLMProvider,
 ) {
+  // Build pluggable task sources
+  const taskSources: TaskSource[] = [
+    createMoltlaunchSource(config.agentId),
+    createPaperclipSource(config.paperclip),
+    createDirectSource(config.directClients),
+  ].filter((s) => s.isEnabled());
   const state: HeartbeatState = {
     running: false,
     activeTasks: new Map(),
@@ -307,38 +315,24 @@ export function createHeartbeat(
   // --- Polling (fallback / sync check) ---
 
   async function tick() {
-    try {
-      const tasks = await cli.getInbox(config.agentId);
-      state.lastPoll = Date.now();
-      state.totalPolls++;
+    state.lastPoll = Date.now();
+    state.totalPolls++;
 
-      emit({ type: "poll", message: `Polled inbox: ${tasks.length} task(s)` });
-      appendLog(`Polled inbox — ${tasks.length} task(s)`);
-
-      for (const task of tasks) {
-        handleTaskEvent(task);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      emit({ type: "error", message: `Poll error: ${msg}` });
-      appendLog(`Poll error: ${msg}`);
-    }
-
-    // Paperclip polling: fetch assigned issues as secondary task source
-    if (config.paperclip) {
+    // Poll all enabled task sources
+    for (const source of taskSources) {
       try {
-        const issues = await paperclipClient.getAssignedIssues(config.paperclip);
-        for (const issue of issues) {
-          const task = issueToTask(issue);
-          handleTaskEvent(task);
+        const tasks = await source.poll();
+        if (tasks.length > 0) {
+          emit({ type: "poll", message: `${source.name}: ${tasks.length} task(s)` });
+          appendLog(`${source.name} — ${tasks.length} task(s)`);
         }
-        if (issues.length > 0) {
-          emit({ type: "poll", message: `Paperclip: ${issues.length} issue(s)` });
+        for (const task of tasks) {
+          handleTaskEvent(task);
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        emit({ type: "error", message: `Paperclip poll error: ${msg}` });
-        // Non-fatal — Moltlaunch tasks still work
+        emit({ type: "error", message: `${source.name} poll error: ${msg}` });
+        // Non-fatal — other sources still work
       }
     }
 

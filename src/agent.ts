@@ -15,6 +15,7 @@ import {
 import { createLLMProvider } from "./llm/index.js";
 import { selectModel } from "./llm/router.js";
 import type { PaperclipWebhookPayload } from "./paperclip/types.js";
+import { handleDirectApi } from "./direct/api.js";
 import { createHeartbeat, type Heartbeat } from "./heartbeat.js";
 import { readTodayLog } from "./memory/log.js";
 import { getFeedbackStats, loadFeedback } from "./memory/feedback.js";
@@ -294,6 +295,11 @@ function handleApi(
       break;
 
     default:
+      // Direct client API: /api/tasks/create, /api/tasks/:id, /api/tasks/history
+      if (pathname.startsWith("/api/tasks/") || pathname === "/api/tasks/create") {
+        handleDirectApiRoute(pathname, req, res, ctx);
+        return;
+      }
       json(res, { error: "Not found" }, 404);
   }
 }
@@ -642,6 +648,38 @@ async function handleEthPrice(res: http.ServerResponse) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     json(res, { error: msg }, 502);
+  }
+}
+
+async function handleDirectApiRoute(
+  pathname: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  ctx: ServerContext,
+) {
+  try {
+    const clients = ctx.config?.directClients ?? [];
+    if (clients.length === 0) {
+      json(res, { error: "No direct clients configured" }, 400);
+      return;
+    }
+
+    let body: unknown = null;
+    if (req.method === "POST") {
+      body = parseJsonBody(await readBody(req));
+    }
+
+    handleDirectApi(
+      pathname,
+      req.method ?? "GET",
+      body,
+      req.headers.authorization,
+      res,
+      clients,
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    json(res, { error: msg }, 500);
   }
 }
 

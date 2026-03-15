@@ -61,6 +61,12 @@ export interface CashClawConfig {
   agentCashEnabled: boolean;
   qaReviewEnabled?: boolean; // default true; set false to skip QA gate
   paperclip?: PaperclipIntegrationConfig;
+  directClients?: Array<{
+    id: string;
+    name: string;
+    apiKey: string;
+    monthlyBudgetUsd?: number;
+  }>;
 }
 
 const CONFIG_DIR = process.env.CASHCLAW_CONFIG_DIR ?? path.join(os.homedir(), ".cashclaw");
