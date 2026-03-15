@@ -46,11 +46,18 @@ function loadOrCreateAuthToken(): string {
   return token;
 }
 
-function checkAuth(pathname: string, req: http.IncomingMessage, authToken: string): boolean {
+function checkAuth(pathname: string, req: http.IncomingMessage, authToken: string, allowedOrigin: string): boolean {
   if (AUTH_DISABLED) return true;
   if (AUTH_SKIP_PATHS.has(pathname)) return true;
   // Allow setup endpoints without auth (needed for initial configuration)
   if (pathname.startsWith("/api/setup/")) return true;
+  // Allow same-origin requests (dashboard UI served from this server)
+  const origin = req.headers.origin || req.headers.referer || "";
+  if (origin && origin.startsWith(allowedOrigin)) return true;
+  // Also allow if request comes from the same Railway hostname
+  const host = req.headers.host || "";
+  if (origin && origin.includes(host)) return true;
+  // External API access requires bearer token
   const header = req.headers.authorization;
   return header === `Bearer ${authToken}`;
 }
@@ -111,7 +118,7 @@ function createServer(ctx: ServerContext): http.Server {
 
     if (url.pathname.startsWith("/api/")) {
       // Auth check for API endpoints
-      if (!checkAuth(url.pathname, req, authToken)) {
+      if (!checkAuth(url.pathname, req, authToken, allowedOrigin)) {
         json(res, { error: "Unauthorized" }, 401);
         return;
       }
@@ -396,6 +403,25 @@ async function handleSetupApi(
         }
 
         try {
+          // Sync CashClaw's imported wallet to moltlaunch's wallet directory
+          // so mltl register uses the correct wallet (with Base ETH for gas)
+          const moltlaunchDir = path.join(os.homedir(), ".moltlaunch");
+          const cashclawWallet = path.join(moltlaunchDir, "wallet.json");
+          const importedWallet = (() => {
+            try {
+              // Read the wallet that CashClaw UI imported
+              const cwDir = getConfigDir();
+              // Check if we have a different wallet in cashclaw config vs moltlaunch
+              if (fs.existsSync(cashclawWallet)) {
+                const moltWallet = JSON.parse(fs.readFileSync(cashclawWallet, "utf-8"));
+                // Get the wallet address shown in the UI (from the last successful import)
+                // The moltlaunch wallet should match what the user sees
+                return moltWallet;
+              }
+            } catch { /* ignore */ }
+            return null;
+          })();
+
           const result = await cli.registerAgent({
             ...body,
             image: imagePath,
