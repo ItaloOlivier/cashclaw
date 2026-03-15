@@ -7,6 +7,8 @@ import { runAgentLoop, type LoopResult } from "./loop/index.js";
 import { runStudySession } from "./loop/study.js";
 import { storeFeedback } from "./memory/feedback.js";
 import { appendLog } from "./memory/log.js";
+import { preQuoteHook, preWorkHook, postCompleteHook } from "./mirofish/hooks.js";
+import { isMiroFishAvailable } from "./mirofish/client.js";
 
 export interface HeartbeatState {
   running: boolean;
@@ -203,7 +205,26 @@ export function createHeartbeat(
     emit({ type: "loop_start", taskId: task.id, message: `Agent loop started (${task.status})` });
     appendLog(`Agent loop started for ${task.id} (${task.status})`);
 
-    runAgentLoop(llm, task, config)
+    // MiroFish pre-hooks: inject strategic intelligence before the agent loop
+    const miroPromises: Promise<string | null>[] = [];
+    if (isMiroFishAvailable()) {
+      if (task.status === "requested") {
+        miroPromises.push(
+          preQuoteHook(task, config).then((r) => r?.promptInjection ?? null),
+        );
+      } else if (task.status === "accepted" || task.status === "revision") {
+        miroPromises.push(
+          preWorkHook(task, config).then((r) => r?.promptInjection ?? null),
+        );
+      }
+    }
+
+    // Resolve MiroFish hooks (with 10s timeout built into client), then run loop
+    Promise.all(miroPromises)
+      .then((injections) => {
+        const miroContext = injections.filter(Boolean).join("") || undefined;
+        return runAgentLoop(llm, task, config, miroContext);
+      })
       .then((result: LoopResult) => {
         const toolNames = result.toolCalls.map((tc) => tc.name).join(", ");
         emit({
@@ -273,6 +294,12 @@ export function createHeartbeat(
       message: `Completed — rated ${task.ratedScore}/5`,
     });
     appendLog(`Task ${task.id} completed — score ${task.ratedScore}/5`);
+
+    // MiroFish post-complete hook: feed outcome back for prediction calibration
+    postCompleteHook(task).catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      appendLog(`MiroFish postComplete error for ${task.id}: ${msg}`);
+    });
   }
 
   function scheduleNext() {

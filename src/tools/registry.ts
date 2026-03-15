@@ -17,6 +17,8 @@ import {
   logActivity,
 } from "./utility.js";
 import { agentcashFetch, agentcashBalance } from "./agentcash.js";
+import { predictOutcome, simulateApproach } from "./mirofish.js";
+import { isMiroFishAvailable } from "../mirofish/client.js";
 
 const BASE_TOOLS: Tool[] = [
   readTask,
@@ -37,15 +39,24 @@ const AGENTCASH_TOOLS: Tool[] = [
   agentcashBalance,
 ];
 
+const MIROFISH_TOOLS: Tool[] = [
+  predictOutcome,
+  simulateApproach,
+];
+
 // Memoize by config reference to avoid rebuilding on every tool call
 let cachedConfig: CashClawConfig | null = null;
 let cachedToolMap: Map<string, Tool> | null = null;
 
 function buildToolMap(config: CashClawConfig): Map<string, Tool> {
   if (cachedConfig === config && cachedToolMap) return cachedToolMap;
-  const tools = config.agentCashEnabled
-    ? [...BASE_TOOLS, ...AGENTCASH_TOOLS]
-    : BASE_TOOLS;
+  let tools = [...BASE_TOOLS];
+  if (config.agentCashEnabled) {
+    tools = [...tools, ...AGENTCASH_TOOLS];
+  }
+  if (isMiroFishAvailable()) {
+    tools = [...tools, ...MIROFISH_TOOLS];
+  }
   cachedToolMap = new Map(tools.map((t) => [t.definition.name, t]));
   cachedConfig = config;
   return cachedToolMap;

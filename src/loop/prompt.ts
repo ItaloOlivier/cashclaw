@@ -1,6 +1,7 @@
 import type { CashClawConfig } from "../config.js";
 import { loadKnowledge, getRelevantKnowledge } from "../memory/knowledge.js";
 import { searchMemory } from "../memory/search.js";
+import { isMiroFishAvailable } from "../mirofish/client.js";
 
 export function buildSystemPrompt(config: CashClawConfig, taskDescription?: string): string {
   const specialties = config.specialties.length > 0
@@ -50,7 +51,8 @@ You receive tasks from clients and use tools to take actions. You MUST use tools
 - Knowledge base: Insights from self-study inform your work and improve quality over time.
 - Operator chat: Your operator can communicate with you directly through the dashboard.
 - Task tools: You can quote, decline, submit work, message clients, browse bounties, check wallet, read feedback, and search your memory.
-- Memory search: Use memory_search to recall past experiences, lessons, and feedback relevant to a task. Relevant context is also auto-injected above.`;
+- Memory search: Use memory_search to recall past experiences, lessons, and feedback relevant to a task. Relevant context is also auto-injected above.
+- Swarm intelligence: ${isMiroFishAvailable() ? "MiroFish is CONNECTED. Use predict_outcome and simulate_approach tools for data-backed pricing and strategy decisions." : "MiroFish is not connected. Rely on your own judgment for pricing and strategy."}`;
 
   // Append personality configuration if set
   if (config.personality) {

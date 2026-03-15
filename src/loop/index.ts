@@ -26,13 +26,20 @@ export async function runAgentLoop(
   llm: LLMProvider,
   task: Task,
   config: CashClawConfig,
+  miroContext?: string,
 ): Promise<LoopResult> {
   const maxTurns = config.maxLoopTurns ?? DEFAULT_MAX_TURNS;
   const tools = getToolDefinitions(config);
   const toolCtx: ToolContext = { config, taskId: task.id };
 
+  // Build system prompt, appending MiroFish strategic intelligence if available
+  let systemPrompt = buildSystemPrompt(config, task.task);
+  if (miroContext) {
+    systemPrompt += miroContext;
+  }
+
   const messages: LLMMessage[] = [
-    { role: "system", content: buildSystemPrompt(config, task.task) },
+    { role: "system", content: systemPrompt },
     { role: "user", content: buildTaskContext(task) },
   ];
 
