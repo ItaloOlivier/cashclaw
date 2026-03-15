@@ -1,4 +1,5 @@
 import http from "node:http";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,6 +8,7 @@ import {
   savePartialConfig,
   isConfigured,
   isAgentCashAvailable,
+  getConfigDir,
   type CashClawConfig,
   type LLMConfig,
 } from "./config.js";
@@ -21,6 +23,33 @@ import * as cli from "./moltlaunch/cli.js";
 
 const PORT = Number(process.env.PORT) || 3777;
 const MAX_BODY_BYTES = 1_048_576; // 1 MB
+
+// --- Auth token management ---
+
+const AUTH_TOKEN_FILE = path.join(getConfigDir(), "auth-token");
+const AUTH_DISABLED = process.env.CASHCLAW_AUTH_DISABLED === "1";
+const AUTH_SKIP_PATHS = new Set(["/api/health", "/api/setup/status"]);
+
+function loadOrCreateAuthToken(): string {
+  try {
+    if (fs.existsSync(AUTH_TOKEN_FILE)) {
+      return fs.readFileSync(AUTH_TOKEN_FILE, "utf-8").trim();
+    }
+  } catch { /* regenerate if unreadable */ }
+  const token = crypto.randomBytes(32).toString("hex");
+  fs.mkdirSync(path.dirname(AUTH_TOKEN_FILE), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(AUTH_TOKEN_FILE, token, { mode: 0o600 });
+  return token;
+}
+
+function checkAuth(pathname: string, req: http.IncomingMessage, authToken: string): boolean {
+  if (AUTH_DISABLED) return true;
+  if (AUTH_SKIP_PATHS.has(pathname)) return true;
+  // Allow setup endpoints without auth (needed for initial configuration)
+  if (pathname.startsWith("/api/setup/")) return true;
+  const header = req.headers.authorization;
+  return header === `Bearer ${authToken}`;
+}
 
 type ServerMode = "setup" | "running";
 
@@ -60,12 +89,13 @@ export async function startAgent(): Promise<http.Server> {
 }
 
 function createServer(ctx: ServerContext): http.Server {
+  const authToken = loadOrCreateAuthToken();
+  const allowedOrigin = process.env.CORS_ORIGIN || `http://localhost:${PORT}`;
+
   const server = http.createServer((req, res) => {
-    // Restrict CORS to same-origin only — prevents cross-site request forgery
-    const allowedOrigin = `http://localhost:${PORT}`;
     res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     if (req.method === "OPTIONS") {
       res.writeHead(204);
@@ -76,6 +106,11 @@ function createServer(ctx: ServerContext): http.Server {
     const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
 
     if (url.pathname.startsWith("/api/")) {
+      // Auth check for API endpoints
+      if (!checkAuth(url.pathname, req, authToken)) {
+        json(res, { error: "Unauthorized" }, 401);
+        return;
+      }
       handleApi(url.pathname, req, res, ctx);
       return;
     }
@@ -85,6 +120,9 @@ function createServer(ctx: ServerContext): http.Server {
 
   server.listen(PORT, () => {
     console.log(`Dashboard: http://localhost:${PORT}`);
+    if (!AUTH_DISABLED) {
+      console.log(`Auth token: ${authToken}`);
+    }
   });
 
   return server;

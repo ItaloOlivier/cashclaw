@@ -40,9 +40,18 @@ export const quoteTask: Tool = {
       required: ["task_id", "price_eth"],
     },
   },
-  async execute(input) {
+  async execute(input, ctx) {
     const taskId = requireString(input, "task_id");
     const priceEth = requireString(input, "price_eth");
+    // Validate price
+    const price = parseFloat(priceEth);
+    if (isNaN(price) || price <= 0) {
+      return { success: false, data: "Invalid price: must be a positive number" };
+    }
+    const maxRate = parseFloat(ctx.config.pricing.maxRateEth);
+    if (price > maxRate) {
+      return { success: false, data: `Price ${priceEth} ETH exceeds max rate ${ctx.config.pricing.maxRateEth} ETH` };
+    }
     await cli.quoteTask(taskId, priceEth, input.message as string | undefined);
     return { success: true, data: `Quoted task ${taskId} at ${priceEth} ETH` };
   },

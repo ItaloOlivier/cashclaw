@@ -35,6 +35,10 @@ export interface CashClawConfig {
   autoWork: boolean;
   maxConcurrentTasks: number;
   maxLoopTurns?: number;
+  maxTokenBudget?: number;
+  maxToolCalls?: number;
+  maxCostPerTaskUsd?: number;
+  maxTaskDurationMs?: number;
   declineKeywords: string[];
   personality?: PersonalityConfig;
   learningEnabled: boolean;
@@ -42,7 +46,7 @@ export interface CashClawConfig {
   agentCashEnabled: boolean;
 }
 
-const CONFIG_DIR = path.join(os.homedir(), ".cashclaw");
+const CONFIG_DIR = process.env.CASHCLAW_CONFIG_DIR ?? path.join(os.homedir(), ".cashclaw");
 const CONFIG_PATH = path.join(CONFIG_DIR, "cashclaw.json");
 
 const DEFAULT_CONFIG: Omit<CashClawConfig, "agentId" | "llm"> = {
@@ -58,12 +62,64 @@ const DEFAULT_CONFIG: Omit<CashClawConfig, "agentId" | "llm"> = {
   agentCashEnabled: false,
 };
 
+/** Validate config fields. Returns array of error messages, empty if valid. */
+export function validateConfig(config: unknown): string[] {
+  const errors: string[] = [];
+  if (!config || typeof config !== "object") return ["Config must be an object"];
+  const c = config as Record<string, unknown>;
+
+  if (c.agentId !== undefined && typeof c.agentId !== "string") errors.push("agentId must be a string");
+
+  if (c.llm && typeof c.llm === "object") {
+    const llm = c.llm as Record<string, unknown>;
+    if (llm.provider && !["anthropic", "openai", "openrouter"].includes(llm.provider as string)) {
+      errors.push("llm.provider must be anthropic, openai, or openrouter");
+    }
+    if (llm.apiKey !== undefined && (typeof llm.apiKey !== "string")) {
+      errors.push("llm.apiKey must be a string");
+    }
+  }
+
+  if (c.maxConcurrentTasks !== undefined) {
+    const v = Number(c.maxConcurrentTasks);
+    if (!Number.isInteger(v) || v < 1 || v > 20) errors.push("maxConcurrentTasks must be 1-20");
+  }
+
+  if (c.polling && typeof c.polling === "object") {
+    const p = c.polling as Record<string, unknown>;
+    if (typeof p.intervalMs === "number" && (p.intervalMs < 5000 || p.intervalMs > 600000)) {
+      errors.push("polling.intervalMs must be 5000-600000");
+    }
+  }
+
+  if (c.studyIntervalMs !== undefined) {
+    const v = Number(c.studyIntervalMs);
+    if (v < 60_000 || v > 86_400_000) errors.push("studyIntervalMs must be 60000-86400000");
+  }
+
+  if (c.maxTokenBudget !== undefined) {
+    const v = Number(c.maxTokenBudget);
+    if (!Number.isInteger(v) || v < 1000) errors.push("maxTokenBudget must be >= 1000");
+  }
+
+  if (c.maxToolCalls !== undefined) {
+    const v = Number(c.maxToolCalls);
+    if (!Number.isInteger(v) || v < 1) errors.push("maxToolCalls must be >= 1");
+  }
+
+  return errors;
+}
+
 export function loadConfig(): CashClawConfig | null {
   if (!fs.existsSync(CONFIG_PATH)) return null;
   try {
     const raw = fs.readFileSync(CONFIG_PATH, "utf-8");
     const parsed = JSON.parse(raw) as CashClawConfig;
     if (!parsed || typeof parsed !== "object") return null;
+    const errors = validateConfig(parsed);
+    if (errors.length > 0) {
+      console.error(`Config validation warnings: ${errors.join("; ")}`);
+    }
     return parsed;
   } catch {
     return null;

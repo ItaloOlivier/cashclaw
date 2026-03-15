@@ -10,6 +10,31 @@ import type {
 
 export type { LLMProvider, LLMMessage, LLMResponse } from "./types.js";
 
+// --- Retry logic ---
+
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503]);
+const MAX_RETRIES = 3;
+
+async function retryableFetch(url: string, init: RequestInit): Promise<Response> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = Math.min(1000 * 2 ** (attempt - 1), 8000);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+    try {
+      const res = await fetch(url, init);
+      if (res.ok || !RETRYABLE_STATUSES.has(res.status)) return res;
+      lastError = new Error(`LLM API ${res.status}: ${await res.text()}`);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      // Network errors are retryable
+      if (attempt === MAX_RETRIES) throw lastError;
+    }
+  }
+  throw lastError!;
+}
+
 function createAnthropicProvider(config: LLMConfig): LLMProvider {
   return {
     async chat(messages, tools) {
@@ -30,7 +55,7 @@ function createAnthropicProvider(config: LLMConfig): LLMProvider {
         body.tools = tools;
       }
 
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await retryableFetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -157,7 +182,7 @@ function createOpenAICompatibleProvider(
         body.tools = toOpenAITools(tools);
       }
 
-      const res = await fetch(`${baseUrl}/chat/completions`, {
+      const res = await retryableFetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers,
         body: JSON.stringify(body),

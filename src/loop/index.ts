@@ -7,6 +7,9 @@ import { buildSystemPrompt } from "./prompt.js";
 import { buildTaskContext } from "./context.js";
 
 const DEFAULT_MAX_TURNS = 10;
+const DEFAULT_MAX_TOKEN_BUDGET = 100_000;
+const DEFAULT_MAX_TOOL_CALLS = 25;
+const DEFAULT_MAX_DURATION_MS = 300_000; // 5 minutes
 
 export interface ToolCallRecord {
   name: string;
@@ -20,6 +23,7 @@ export interface LoopResult {
   reasoning: string;
   turns: number;
   usage: { inputTokens: number; outputTokens: number };
+  abortReason?: "token_budget" | "tool_call_limit" | "duration_limit" | "max_tokens_truncated";
 }
 
 export async function runAgentLoop(
@@ -29,6 +33,11 @@ export async function runAgentLoop(
   miroContext?: string,
 ): Promise<LoopResult> {
   const maxTurns = config.maxLoopTurns ?? DEFAULT_MAX_TURNS;
+  const maxTokenBudget = config.maxTokenBudget ?? DEFAULT_MAX_TOKEN_BUDGET;
+  const maxToolCalls = config.maxToolCalls ?? DEFAULT_MAX_TOOL_CALLS;
+  const maxDurationMs = config.maxTaskDurationMs ?? DEFAULT_MAX_DURATION_MS;
+  const startTime = Date.now();
+
   const tools = getToolDefinitions(config);
   const toolCtx: ToolContext = { config, taskId: task.id };
 
@@ -48,10 +57,30 @@ export async function runAgentLoop(
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
 
+  function makeResult(extra?: { abortReason?: LoopResult["abortReason"]; turnCount?: number }): LoopResult {
+    return {
+      toolCalls: allToolCalls,
+      reasoning: reasoningParts.join("\n") + (extra?.abortReason ? `\n[aborted: ${extra.abortReason}]` : ""),
+      turns: extra?.turnCount ?? maxTurns,
+      usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens },
+      abortReason: extra?.abortReason,
+    };
+  }
+
   for (let turn = 0; turn < maxTurns; turn++) {
+    // Circuit breaker: duration
+    if (Date.now() - startTime > maxDurationMs) {
+      return makeResult({ abortReason: "duration_limit", turnCount: turn });
+    }
+
     const response: LLMResponse = await llm.chat(messages, tools);
     totalInputTokens += response.usage.inputTokens;
     totalOutputTokens += response.usage.outputTokens;
+
+    // Circuit breaker: token budget
+    if (totalInputTokens + totalOutputTokens > maxTokenBudget) {
+      return makeResult({ abortReason: "token_budget", turnCount: turn + 1 });
+    }
 
     for (const block of response.content) {
       if (block.type === "text" && block.text.trim()) {
@@ -60,6 +89,12 @@ export async function runAgentLoop(
     }
 
     messages.push({ role: "assistant" as const, content: response.content });
+
+    // Handle max_tokens truncation — don't process tool calls from truncated responses
+    if (response.stopReason === "max_tokens") {
+      reasoningParts.push("[output truncated — max_tokens reached]");
+      return makeResult({ abortReason: "max_tokens_truncated", turnCount: turn + 1 });
+    }
 
     if (response.stopReason !== "tool_use") {
       return {
@@ -77,6 +112,11 @@ export async function runAgentLoop(
     const toolResults: ToolResultBlock[] = [];
 
     for (const block of toolUseBlocks) {
+      // Circuit breaker: tool call limit
+      if (allToolCalls.length >= maxToolCalls) {
+        return makeResult({ abortReason: "tool_call_limit", turnCount: turn + 1 });
+      }
+
       const result = await executeTool(block.name, block.input, toolCtx);
 
       allToolCalls.push({
@@ -97,10 +137,6 @@ export async function runAgentLoop(
     messages.push({ role: "user" as const, content: toolResults });
   }
 
-  return {
-    toolCalls: allToolCalls,
-    reasoning: reasoningParts.join("\n") + "\n[max turns reached]",
-    turns: maxTurns,
-    usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens },
-  };
+  reasoningParts.push("[max turns reached]");
+  return makeResult({ turnCount: maxTurns });
 }

@@ -1,5 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import type { Task, Bounty, WalletInfo, RegisterResult, AgentInfo } from "./types.js";
 
 const execFileAsync = promisify(execFile);
@@ -161,7 +164,18 @@ export async function submitWork(
   taskId: string,
   result: string,
 ): Promise<void> {
-  await mltl<unknown>(["submit", "--task", taskId, "--result", result]);
+  // Large results can exceed shell arg length limits — use temp file
+  if (result.length > 50_000) {
+    const tmpFile = path.join(os.tmpdir(), `cashclaw-submit-${Date.now()}.txt`);
+    fs.writeFileSync(tmpFile, result);
+    try {
+      await mltl<unknown>(["submit", "--task", taskId, "--result-file", tmpFile]);
+    } finally {
+      try { fs.unlinkSync(tmpFile); } catch { /* ignore cleanup errors */ }
+    }
+  } else {
+    await mltl<unknown>(["submit", "--task", taskId, "--result", result]);
+  }
 }
 
 export async function sendMessage(

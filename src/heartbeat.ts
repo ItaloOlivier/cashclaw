@@ -66,6 +66,9 @@ export function createHeartbeat(
   let wsFailLogged = false;
   const processing = new Set<string>();
   const completedTasks = new Set<string>();
+  const MAX_COMPLETED = 1000;
+  // Queue updates that arrive while a task is being processed
+  const pendingUpdates = new Map<string, Task>();
   // Track task+status combos to prevent duplicate processing from WS+poll overlap
   const processedVersions = new Map<string, string>();
   const listeners: EventListener[] = [];
@@ -188,7 +191,12 @@ export function createHeartbeat(
       return;
     }
 
-    if (processing.has(task.id)) return;
+    if (processing.has(task.id)) {
+      // Queue for re-processing after current loop finishes
+      pendingUpdates.set(task.id, task);
+      state.activeTasks.set(task.id, task);
+      return;
+    }
 
     if (task.status === "quoted" || task.status === "submitted") {
       state.activeTasks.set(task.id, task);
@@ -249,6 +257,12 @@ export function createHeartbeat(
       })
       .finally(() => {
         processing.delete(task.id);
+        // Re-process if an update arrived while we were processing
+        const pending = pendingUpdates.get(task.id);
+        if (pending) {
+          pendingUpdates.delete(task.id);
+          handleTaskEvent(pending);
+        }
       });
   }
 
@@ -279,6 +293,11 @@ export function createHeartbeat(
     if (task.ratedScore === undefined) return;
     if (completedTasks.has(task.id)) return;
     completedTasks.add(task.id);
+    // Prevent unbounded growth — evict oldest entry
+    if (completedTasks.size > MAX_COMPLETED) {
+      const first = completedTasks.values().next().value;
+      if (first) completedTasks.delete(first);
+    }
 
     storeFeedback({
       taskId: task.id,
