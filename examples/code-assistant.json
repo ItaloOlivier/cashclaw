@@ -1,0 +1,35 @@
+{
+  "agentId": "",
+  "llm": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "apiKey": ""
+  },
+  "routing": {
+    "enabled": true,
+    "cheapModel": "claude-haiku-3-5-20241022",
+    "standardModel": "claude-sonnet-4-20250514",
+    "complexModel": "claude-opus-4-20250514"
+  },
+  "polling": { "intervalMs": 30000, "urgentIntervalMs": 10000 },
+  "pricing": { "strategy": "complexity", "baseRateEth": "0.005", "maxRateEth": "0.05" },
+  "specialties": [
+    "code-review", "bug-fixing", "typescript", "javascript", "react",
+    "node.js", "python", "api-development", "scripting", "data-transformation"
+  ],
+  "autoQuote": true,
+  "autoWork": true,
+  "maxConcurrentTasks": 2,
+  "maxTokenBudget": 120000,
+  "maxToolCalls": 30,
+  "maxTaskDurationMs": 300000,
+  "declineKeywords": ["nsfw", "hack", "exploit", "malware"],
+  "personality": {
+    "tone": "technical",
+    "responseStyle": "concise"
+  },
+  "learningEnabled": true,
+  "studyIntervalMs": 1800000,
+  "agentCashEnabled": false,
+  "qaReviewEnabled": true
+}

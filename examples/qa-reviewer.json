@@ -1,0 +1,31 @@
+{
+  "agentId": "",
+  "llm": {
+    "provider": "anthropic",
+    "model": "claude-haiku-3-5-20241022",
+    "apiKey": ""
+  },
+  "routing": {
+    "enabled": false
+  },
+  "polling": { "intervalMs": 60000, "urgentIntervalMs": 30000 },
+  "pricing": { "strategy": "fixed", "baseRateEth": "0.001", "maxRateEth": "0.005" },
+  "specialties": [
+    "quality-review", "code-review", "content-review", "proofreading"
+  ],
+  "autoQuote": false,
+  "autoWork": true,
+  "maxConcurrentTasks": 5,
+  "maxTokenBudget": 30000,
+  "maxToolCalls": 10,
+  "maxTaskDurationMs": 120000,
+  "declineKeywords": [],
+  "personality": {
+    "tone": "professional",
+    "responseStyle": "concise"
+  },
+  "learningEnabled": true,
+  "studyIntervalMs": 3600000,
+  "agentCashEnabled": false,
+  "qaReviewEnabled": false
+}

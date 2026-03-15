@@ -1,0 +1,35 @@
+{
+  "agentId": "",
+  "llm": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "apiKey": ""
+  },
+  "routing": {
+    "enabled": true,
+    "cheapModel": "claude-haiku-3-5-20241022",
+    "standardModel": "claude-sonnet-4-20250514",
+    "complexModel": "claude-opus-4-20250514"
+  },
+  "polling": { "intervalMs": 30000, "urgentIntervalMs": 10000 },
+  "pricing": { "strategy": "fixed", "baseRateEth": "0.003", "maxRateEth": "0.03" },
+  "specialties": [
+    "copywriting", "blog-posts", "social-media", "email-campaigns",
+    "product-descriptions", "seo-content", "newsletters", "landing-pages"
+  ],
+  "autoQuote": true,
+  "autoWork": true,
+  "maxConcurrentTasks": 3,
+  "maxTokenBudget": 80000,
+  "maxToolCalls": 20,
+  "maxTaskDurationMs": 300000,
+  "declineKeywords": ["nsfw", "hack", "exploit"],
+  "personality": {
+    "tone": "professional",
+    "responseStyle": "detailed"
+  },
+  "learningEnabled": true,
+  "studyIntervalMs": 1800000,
+  "agentCashEnabled": false,
+  "qaReviewEnabled": true
+}

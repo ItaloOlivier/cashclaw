@@ -16,6 +16,7 @@ import { createLLMProvider } from "./llm/index.js";
 import { selectModel } from "./llm/router.js";
 import type { PaperclipWebhookPayload } from "./paperclip/types.js";
 import { handleDirectApi } from "./direct/api.js";
+import { getQAMetrics } from "./qa/metrics.js";
 import { createHeartbeat, type Heartbeat } from "./heartbeat.js";
 import { readTodayLog } from "./memory/log.js";
 import { getFeedbackStats, loadFeedback } from "./memory/feedback.js";
@@ -224,6 +225,7 @@ function handleApi(
         ...getFeedbackStats(),
         studySessions: ctx.heartbeat.state.totalStudySessions,
         knowledgeEntries: loadKnowledge().length,
+        qa: getQAMetrics(),
       });
       break;
 
