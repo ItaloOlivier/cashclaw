@@ -343,8 +343,31 @@ async function handleSetupApi(
       case "/api/setup/wallet/import": {
         if (req.method !== "POST") { json(res, { error: "POST only" }, 405); return; }
         const body = parseJsonBody(await readBody(req)) as { privateKey: string };
-        const wallet = await cli.walletImport(body.privateKey);
-        json(res, wallet);
+        try {
+          const wallet = await cli.walletImport(body.privateKey);
+          json(res, wallet);
+        } catch {
+          // Fallback: write wallet file directly if mltl CLI fails
+          try {
+            const { privateKeyToAccount } = await import("viem/accounts");
+            const key = body.privateKey.startsWith("0x") ? body.privateKey : `0x${body.privateKey}`;
+            const account = privateKeyToAccount(key as `0x${string}`);
+            const walletDir = path.join(os.homedir(), ".moltlaunch");
+            fs.mkdirSync(walletDir, { recursive: true, mode: 0o700 });
+            const walletPath = path.join(walletDir, "wallet.json");
+            const walletData = {
+              address: account.address,
+              privateKey: key,
+              createdAt: new Date().toISOString(),
+              imported: true,
+            };
+            fs.writeFileSync(walletPath, JSON.stringify(walletData, null, 2), { mode: 0o600 });
+            json(res, { address: account.address, balance: "0", imported: true });
+          } catch (e2) {
+            const msg = e2 instanceof Error ? e2.message : String(e2);
+            json(res, { error: `Wallet import failed: ${msg}` }, 400);
+          }
+        }
         break;
       }
 
