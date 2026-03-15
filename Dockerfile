@@ -16,7 +16,6 @@ RUN npm run build:all
 # CashClaw dashboard port
 EXPOSE 3777
 
-# Persistent storage for knowledge, feedback, config, logs
-VOLUME ["/root/.cashclaw"]
+# Persistent storage handled by Railway volume mount at /root/.cashclaw
 
 CMD ["node", "dist/index.js"]
