@@ -7,7 +7,15 @@ import type { Task, Bounty, WalletInfo, RegisterResult, AgentInfo } from "./type
 
 const execFileAsync = promisify(execFile);
 
-const MLTL_BIN = "mltl";
+// Resolve mltl binary: prefer local node_modules, fall back to global PATH
+function resolveMltlBin(): string {
+  // Check node_modules/.bin/mltl relative to project root
+  const localBin = path.join(import.meta.dirname ?? __dirname, "../../node_modules/.bin/mltl");
+  if (fs.existsSync(localBin)) return localBin;
+  // Fall back to global PATH
+  return "mltl";
+}
+const MLTL_BIN = resolveMltlBin();
 const DEFAULT_TIMEOUT = 30_000;
 const REGISTER_TIMEOUT = 120_000;
 
