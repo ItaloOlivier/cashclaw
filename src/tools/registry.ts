@@ -1,6 +1,9 @@
 import type { ToolDefinition } from "../llm/types.js";
 import type { CashClawConfig } from "../config.js";
 import type { Tool, ToolContext, ToolResult } from "./types.js";
+import { runQAReview } from "../qa/reviewer.js";
+import { recordQAResult } from "../qa/metrics.js";
+import { structuredLog } from "../log.js";
 import {
   readTask,
   quoteTask,
@@ -79,6 +82,47 @@ export async function executeTool(
   }
 
   try {
+    // QA gate: intercept submit_work to review deliverable before submission
+    if (name === "submit_work" && ctx.config.qaReviewEnabled !== false) {
+      const deliverable = input.result as string;
+      const taskId = input.task_id as string;
+
+      if (deliverable && taskId) {
+        try {
+          const review = await runQAReview(
+            ctx.config,
+            ctx.taskDescription ?? `Task ${taskId}`,
+            deliverable,
+          );
+
+          recordQAResult({
+            taskId,
+            approved: review.approved,
+            score: review.score,
+            revisedAndApproved: false,
+            timestamp: Date.now(),
+          });
+
+          structuredLog("info", "qa.review", {
+            taskId,
+            approved: review.approved,
+            score: review.score,
+          });
+
+          if (!review.approved) {
+            return {
+              success: false,
+              data: `QA Review REJECTED (score: ${review.score}/5). Revise before submitting:\n\n${review.feedback}\n\nAddress the feedback above and call submit_work again with the improved deliverable.`,
+            };
+          }
+        } catch (err) {
+          // QA failure is non-fatal — submit anyway (fail-open)
+          const msg = err instanceof Error ? err.message : String(err);
+          structuredLog("warn", "qa.error", { taskId, error: msg });
+        }
+      }
+    }
+
     return await tool.execute(input, ctx);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

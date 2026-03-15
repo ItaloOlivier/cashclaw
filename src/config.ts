@@ -59,6 +59,7 @@ export interface CashClawConfig {
   learningEnabled: boolean;
   studyIntervalMs: number;
   agentCashEnabled: boolean;
+  qaReviewEnabled?: boolean; // default true; set false to skip QA gate
   paperclip?: PaperclipIntegrationConfig;
 }
 

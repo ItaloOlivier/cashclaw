@@ -9,6 +9,7 @@ export interface ToolResult {
 export interface ToolContext {
   config: CashClawConfig;
   taskId: string;
+  taskDescription?: string;
 }
 
 export interface Tool {

@@ -39,7 +39,7 @@ export async function runAgentLoop(
   const startTime = Date.now();
 
   const tools = getToolDefinitions(config);
-  const toolCtx: ToolContext = { config, taskId: task.id };
+  const toolCtx: ToolContext = { config, taskId: task.id, taskDescription: task.task };
 
   // Build system prompt, appending MiroFish strategic intelligence if available
   let systemPrompt = buildSystemPrompt(config, task.task);
