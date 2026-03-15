@@ -6,6 +6,9 @@ import * as cli from "./moltlaunch/cli.js";
 import { createLLMProvider } from "./llm/index.js";
 import { selectModel, type RoutingInput } from "./llm/router.js";
 import { runAgentLoop, type LoopResult } from "./loop/index.js";
+import * as paperclipClient from "./paperclip/client.js";
+import { issueToTask } from "./paperclip/mapper.js";
+import { estimateCostUsd } from "./llm/cost.js";
 import { runStudySession } from "./loop/study.js";
 import { storeFeedback } from "./memory/feedback.js";
 import { appendLog } from "./memory/log.js";
@@ -267,6 +270,23 @@ export function createHeartbeat(
             message: `${tc.name}(${JSON.stringify(tc.input).slice(0, 100)}) → ${tc.success ? "ok" : "err"}`,
           });
         }
+
+        // Report costs to Paperclip if configured
+        if (config.paperclip && result.usage) {
+          const costCents = Math.round(
+            estimateCostUsd(config.llm.model, result.usage.inputTokens, result.usage.outputTokens) * 100,
+          );
+          paperclipClient.reportCost(config.paperclip, {
+            agentId: config.paperclip.agentId,
+            issueId: task.id,
+            provider: config.llm.provider,
+            model: config.llm.model,
+            inputTokens: result.usage.inputTokens,
+            outputTokens: result.usage.outputTokens,
+            costCents,
+            occurredAt: new Date().toISOString(),
+          }).catch(() => { /* non-fatal */ });
+        }
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
@@ -302,6 +322,24 @@ export function createHeartbeat(
       const msg = err instanceof Error ? err.message : String(err);
       emit({ type: "error", message: `Poll error: ${msg}` });
       appendLog(`Poll error: ${msg}`);
+    }
+
+    // Paperclip polling: fetch assigned issues as secondary task source
+    if (config.paperclip) {
+      try {
+        const issues = await paperclipClient.getAssignedIssues(config.paperclip);
+        for (const issue of issues) {
+          const task = issueToTask(issue);
+          handleTaskEvent(task);
+        }
+        if (issues.length > 0) {
+          emit({ type: "poll", message: `Paperclip: ${issues.length} issue(s)` });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        emit({ type: "error", message: `Paperclip poll error: ${msg}` });
+        // Non-fatal — Moltlaunch tasks still work
+      }
     }
 
     scheduleNext();

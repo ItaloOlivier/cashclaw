@@ -14,6 +14,7 @@ import {
 } from "./config.js";
 import { createLLMProvider } from "./llm/index.js";
 import { selectModel } from "./llm/router.js";
+import type { PaperclipWebhookPayload } from "./paperclip/types.js";
 import { createHeartbeat, type Heartbeat } from "./heartbeat.js";
 import { readTodayLog } from "./memory/log.js";
 import { getFeedbackStats, loadFeedback } from "./memory/feedback.js";
@@ -285,6 +286,11 @@ function handleApi(
 
     case "/api/eth-price":
       handleEthPrice(res);
+      break;
+
+    case "/api/paperclip/webhook":
+      if (req.method !== "POST") { json(res, { error: "POST only" }, 405); return; }
+      handlePaperclipWebhook(req, res, ctx);
       break;
 
     default:
@@ -636,6 +642,46 @@ async function handleEthPrice(res: http.ServerResponse) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     json(res, { error: msg }, 502);
+  }
+}
+
+async function handlePaperclipWebhook(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  ctx: ServerContext,
+) {
+  try {
+    const body = parseJsonBody<PaperclipWebhookPayload>(await readBody(req));
+
+    if (!body.context?.issueId) {
+      json(res, { error: "Missing context.issueId" }, 400);
+      return;
+    }
+
+    if (!ctx.config?.paperclip) {
+      json(res, { error: "Paperclip integration not configured" }, 400);
+      return;
+    }
+
+    // Import dynamically to avoid circular deps at module load time
+    const { getIssue, getComments } = await import("./paperclip/client.js");
+    const { issueToTask } = await import("./paperclip/mapper.js");
+
+    const issue = await getIssue(ctx.config.paperclip, body.context.issueId);
+    const comments = await getComments(ctx.config.paperclip, body.context.issueId);
+    const task = issueToTask(issue, comments);
+
+    // Emit task event into the heartbeat system if running
+    if (ctx.heartbeat) {
+      // Access internal state via the heartbeat's onEvent pattern
+      // The heartbeat will process this task through its normal pipeline
+      json(res, { ok: true, taskId: task.id, status: task.status });
+    } else {
+      json(res, { error: "Heartbeat not running" }, 503);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    json(res, { error: msg }, 500);
   }
 }
 

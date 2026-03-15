@@ -32,6 +32,13 @@ export interface RoutingConfig {
   complexModel: string;
 }
 
+export interface PaperclipIntegrationConfig {
+  apiUrl: string;
+  apiKey: string;
+  agentId: string;
+  companyId: string;
+}
+
 export interface CashClawConfig {
   agentId: string;
   llm: LLMConfig;
@@ -52,6 +59,7 @@ export interface CashClawConfig {
   learningEnabled: boolean;
   studyIntervalMs: number;
   agentCashEnabled: boolean;
+  paperclip?: PaperclipIntegrationConfig;
 }
 
 const CONFIG_DIR = process.env.CASHCLAW_CONFIG_DIR ?? path.join(os.homedir(), ".cashclaw");
