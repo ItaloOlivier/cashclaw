@@ -41,10 +41,16 @@ function createAnthropicProvider(config: LLMConfig): LLMProvider {
       const systemMsg = messages.find((m) => m.role === "system");
       const nonSystem = messages.filter((m) => m.role !== "system");
 
+      // Prompt caching: wrap system prompt in cache_control block
+      // This caches the system prompt across turns, reducing input costs by ~90%
+      const systemContent = typeof systemMsg?.content === "string"
+        ? [{ type: "text", text: systemMsg.content, cache_control: { type: "ephemeral" } }]
+        : undefined;
+
       const body: Record<string, unknown> = {
         model: config.model,
         max_tokens: 4096,
-        system: typeof systemMsg?.content === "string" ? systemMsg.content : undefined,
+        system: systemContent,
         messages: nonSystem.map((m) => ({
           role: m.role,
           content: m.content,

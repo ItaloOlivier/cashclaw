@@ -13,6 +13,7 @@ import {
   type LLMConfig,
 } from "./config.js";
 import { createLLMProvider } from "./llm/index.js";
+import { selectModel } from "./llm/router.js";
 import { createHeartbeat, type Heartbeat } from "./heartbeat.js";
 import { readTodayLog } from "./memory/log.js";
 import { getFeedbackStats, loadFeedback } from "./memory/feedback.js";
@@ -658,7 +659,9 @@ async function handleChat(
     const userMsg = body.message.trim();
     appendChat({ role: "user", content: userMsg, timestamp: Date.now() });
 
-    const llm = createLLMProvider(ctx.config.llm);
+    // Use cheap model for chat — it's conversational, not task execution
+    const chatModel = selectModel(ctx.config.routing, ctx.config.llm.model, { context: "chat" });
+    const llm = createLLMProvider({ ...ctx.config.llm, model: chatModel });
     const specialties = ctx.config.specialties.length > 0
       ? ctx.config.specialties.join(", ")
       : "general tasks";

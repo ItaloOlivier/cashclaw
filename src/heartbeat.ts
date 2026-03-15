@@ -3,6 +3,8 @@ import type { CashClawConfig } from "./config.js";
 import type { LLMProvider } from "./llm/types.js";
 import type { Task } from "./moltlaunch/types.js";
 import * as cli from "./moltlaunch/cli.js";
+import { createLLMProvider } from "./llm/index.js";
+import { selectModel, type RoutingInput } from "./llm/router.js";
 import { runAgentLoop, type LoopResult } from "./loop/index.js";
 import { runStudySession } from "./loop/study.js";
 import { storeFeedback } from "./memory/feedback.js";
@@ -42,6 +44,16 @@ const WS_MAX_RECONNECT_MS = 300_000; // 5 min cap
 const WS_POLL_INTERVAL_MS = 120_000;
 // Expire non-terminal tasks after 7 days to prevent memory leaks
 const TASK_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Create a LLM provider with model routing applied */
+function routedLLM(config: CashClawConfig, input: RoutingInput): LLMProvider {
+  const model = selectModel(config.routing, config.llm.model, input);
+  if (model === config.llm.model) {
+    // No routing change — use the base provider
+    return createLLMProvider(config.llm);
+  }
+  return createLLMProvider({ ...config.llm, model });
+}
 
 export function createHeartbeat(
   config: CashClawConfig,
@@ -231,7 +243,13 @@ export function createHeartbeat(
     Promise.all(miroPromises)
       .then((injections) => {
         const miroContext = injections.filter(Boolean).join("") || undefined;
-        return runAgentLoop(llm, task, config, miroContext);
+        // Use routed model based on task characteristics
+        const taskLLM = routedLLM(config, {
+          context: "task",
+          taskDescription: task.task,
+          taskStatus: task.status,
+        });
+        return runAgentLoop(taskLLM, task, config, miroContext);
       })
       .then((result: LoopResult) => {
         const toolNames = result.toolCalls.map((tc) => tc.name).join(", ");
@@ -375,7 +393,8 @@ export function createHeartbeat(
     appendLog("Study session started");
 
     try {
-      const result = await runStudySession(llm, config);
+      const studyLLM = routedLLM(config, { context: "study" });
+      const result = await runStudySession(studyLLM, config);
       state.lastStudyTime = Date.now();
       state.totalStudySessions++;
 

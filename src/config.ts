@@ -25,9 +25,17 @@ export interface PersonalityConfig {
   customInstructions?: string;
 }
 
+export interface RoutingConfig {
+  enabled: boolean;
+  cheapModel: string;
+  standardModel: string;
+  complexModel: string;
+}
+
 export interface CashClawConfig {
   agentId: string;
   llm: LLMConfig;
+  routing?: RoutingConfig;
   polling: PollingConfig;
   pricing: PricingConfig;
   specialties: string[];
