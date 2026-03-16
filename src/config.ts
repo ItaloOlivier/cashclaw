@@ -164,9 +164,34 @@ export function requireConfig(): CashClawConfig {
 }
 
 export function saveConfig(config: CashClawConfig): void {
+  // Never save masked API keys to disk — preserve existing values instead
+  if (config.llm?.apiKey === "***") {
+    const existing = loadConfigRaw();
+    if (existing?.llm?.apiKey && existing.llm.apiKey !== "***") {
+      config.llm.apiKey = existing.llm.apiKey;
+    } else if (process.env.LLM_API_KEY) {
+      config.llm.apiKey = process.env.LLM_API_KEY;
+    }
+  }
+  if (config.paperclip?.apiKey === "***") {
+    const existing = loadConfigRaw();
+    if (existing?.paperclip?.apiKey && existing.paperclip.apiKey !== "***") {
+      config.paperclip.apiKey = existing.paperclip.apiKey;
+    }
+  }
   fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
   fs.chmodSync(CONFIG_PATH, 0o600);
+}
+
+/** Read config from disk without env var overrides (for preserving saved values) */
+function loadConfigRaw(): CashClawConfig | null {
+  if (!fs.existsSync(CONFIG_PATH)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8")) as CashClawConfig;
+  } catch {
+    return null;
+  }
 }
 
 /** Check if config has all required fields for running the agent */
