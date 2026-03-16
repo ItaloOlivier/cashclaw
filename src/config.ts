@@ -60,6 +60,7 @@ export interface CashClawConfig {
   studyIntervalMs: number;
   agentCashEnabled: boolean;
   browserEnabled?: boolean;
+  moltbookEnabled?: boolean;
   qaReviewEnabled?: boolean; // default true; set false to skip QA gate
   paperclip?: PaperclipIntegrationConfig;
   directClients?: Array<{

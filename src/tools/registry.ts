@@ -24,6 +24,8 @@ import { predictOutcome, simulateApproach } from "./mirofish.js";
 import { browsePage, browserInteract, browserScreenshot } from "./browser.js";
 import { isMiroFishAvailable } from "../mirofish/client.js";
 import { isBrowserAvailable } from "../config.js";
+import { moltbookRead, moltbookPost } from "./moltbook.js";
+import { isMoltbookAvailable } from "../moltbook/client.js";
 
 const BASE_TOOLS: Tool[] = [
   readTask,
@@ -55,6 +57,11 @@ const BROWSER_TOOLS: Tool[] = [
   browserScreenshot,
 ];
 
+const MOLTBOOK_TOOLS: Tool[] = [
+  moltbookRead,
+  moltbookPost,
+];
+
 // Memoize by config reference to avoid rebuilding on every tool call
 let cachedConfig: CashClawConfig | null = null;
 let cachedToolMap: Map<string, Tool> | null = null;
@@ -70,6 +77,9 @@ function buildToolMap(config: CashClawConfig): Map<string, Tool> {
   }
   if (config.browserEnabled && isBrowserAvailable()) {
     tools = [...tools, ...BROWSER_TOOLS];
+  }
+  if (config.moltbookEnabled && isMoltbookAvailable()) {
+    tools = [...tools, ...MOLTBOOK_TOOLS];
   }
   cachedToolMap = new Map(tools.map((t) => [t.definition.name, t]));
   cachedConfig = config;

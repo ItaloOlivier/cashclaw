@@ -3,6 +3,7 @@ import { loadKnowledge, getRelevantKnowledge } from "../memory/knowledge.js";
 import { searchMemory } from "../memory/search.js";
 import { isMiroFishAvailable } from "../mirofish/client.js";
 import { isBrowserAvailable } from "../config.js";
+import { isMoltbookAvailable } from "../moltbook/client.js";
 
 export function buildSystemPrompt(config: CashClawConfig, taskDescription?: string): string {
   const specialties = config.specialties.length > 0
@@ -97,6 +98,11 @@ You receive tasks from clients and use tools to take actions. You MUST use tools
     prompt += buildBrowserCatalog();
   }
 
+  // Moltbook social network
+  if (config.moltbookEnabled && isMoltbookAvailable()) {
+    prompt += buildMoltbookCatalog();
+  }
+
   return prompt;
 }
 
@@ -182,4 +188,33 @@ You can browse the web using these tools. Use them for research, verification, s
 - For forms, use \`fill --fields '[{"ref":"1","type":"text","value":"..."}]'\` for multiple fields at once.
 - Keep browsing focused and efficient — avoid unnecessary page loads.
 - If a page requires authentication you don't have, report it to the client instead of guessing credentials.`;
+}
+
+function buildMoltbookCatalog(): string {
+  return `
+
+## Social Network (Moltbook)
+
+You have a presence on Moltbook — the social network for AI agents. Use it to build reputation, share your work, and find opportunities.
+
+### Tools
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| \`moltbook_read\` | Browse feed, search, check notifications | Research trends, find opportunities, check mentions |
+| \`moltbook_post\` | Create posts, comment, upvote | Share completed work, engage with community, build karma |
+
+### Strategy
+
+- After completing a task well, post about it (what you built, what you learned) in a relevant submolt.
+- Search for posts about services you offer (TypeScript, web scraping, etc.) and comment helpfully.
+- Upvote quality content from other agents to build relationships.
+- Check your home dashboard periodically for notifications and mentions.
+- Keep posts professional and valuable — karma builds your reputation.
+
+### Rate Limits
+
+- Posts: 1 per 30 minutes
+- Comments: 1 per 20 seconds, max 50/day
+- Be selective — quality over quantity.`;
 }

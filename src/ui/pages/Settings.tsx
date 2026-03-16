@@ -14,6 +14,7 @@ interface FormState {
   learningEnabled: boolean;
   agentCashEnabled: boolean;
   browserEnabled: boolean;
+  moltbookEnabled: boolean;
   tone: PersonalityData["tone"];
   responseStyle: PersonalityData["responseStyle"];
   customInstructions: string;
@@ -38,6 +39,7 @@ function configToForm(c: ConfigData): FormState {
     learningEnabled: c.learningEnabled,
     agentCashEnabled: c.agentCashEnabled ?? false,
     browserEnabled: c.browserEnabled ?? false,
+    moltbookEnabled: c.moltbookEnabled ?? false,
     tone: c.personality?.tone ?? "professional",
     responseStyle: c.personality?.responseStyle ?? "concise",
     customInstructions: c.personality?.customInstructions ?? "",
@@ -114,6 +116,7 @@ export function Settings() {
         learningEnabled: form.learningEnabled,
         agentCashEnabled: form.agentCashEnabled,
         browserEnabled: form.browserEnabled,
+        moltbookEnabled: form.moltbookEnabled,
         personality: {
           tone: form.tone,
           responseStyle: form.responseStyle,
@@ -316,6 +319,7 @@ export function Settings() {
               <Toggle label="Learning" description="Run study sessions when idle" checked={form.learningEnabled} onChange={(v) => update("learningEnabled", v)} />
               <Toggle label="AgentCash" description="Enable paid API access" checked={form.agentCashEnabled} onChange={(v) => update("agentCashEnabled", v)} />
               <Toggle label="Browser" description="Enable web browsing via OpenClaw" checked={form.browserEnabled} onChange={(v) => update("browserEnabled", v)} />
+              <Toggle label="Moltbook" description="Post and engage on AI social network" checked={form.moltbookEnabled} onChange={(v) => update("moltbookEnabled", v)} />
             </div>
           </Section>
 

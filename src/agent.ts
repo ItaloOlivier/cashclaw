@@ -592,6 +592,7 @@ async function handleConfigUpdate(
     if (updates.polling) ctx.config.polling = updates.polling;
     if (updates.agentCashEnabled !== undefined) ctx.config.agentCashEnabled = updates.agentCashEnabled;
     if (updates.browserEnabled !== undefined) ctx.config.browserEnabled = updates.browserEnabled;
+    if (updates.moltbookEnabled !== undefined) ctx.config.moltbookEnabled = updates.moltbookEnabled;
     if (updates.paperclip) ctx.config.paperclip = updates.paperclip;
     if (updates.routing) ctx.config.routing = updates.routing;
     if (updates.qaReviewEnabled !== undefined) ctx.config.qaReviewEnabled = updates.qaReviewEnabled;

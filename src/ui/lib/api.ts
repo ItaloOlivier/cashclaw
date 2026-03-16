@@ -101,6 +101,7 @@ export interface ConfigData {
   polling: PollingData;
   agentCashEnabled: boolean;
   browserEnabled?: boolean;
+  moltbookEnabled?: boolean;
 }
 
 export interface AgentCashBalance {
