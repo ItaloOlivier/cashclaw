@@ -224,6 +224,7 @@ function handleApi(
       json(res, {
         ...ctx.config,
         llm: { ...ctx.config.llm, apiKey: "***" },
+        ...(ctx.config.paperclip ? { paperclip: { ...ctx.config.paperclip, apiKey: "***" } } : {}),
       });
       break;
 
@@ -590,6 +591,9 @@ async function handleConfigUpdate(
     }
     if (updates.polling) ctx.config.polling = updates.polling;
     if (updates.agentCashEnabled !== undefined) ctx.config.agentCashEnabled = updates.agentCashEnabled;
+    if (updates.paperclip) ctx.config.paperclip = updates.paperclip;
+    if (updates.routing) ctx.config.routing = updates.routing;
+    if (updates.qaReviewEnabled !== undefined) ctx.config.qaReviewEnabled = updates.qaReviewEnabled;
 
     // LLM hot-swap: preserve existing apiKey if masked, restart heartbeat
     if (updates.llm) {
@@ -742,31 +746,35 @@ async function handlePaperclipWebhook(
   try {
     const body = parseJsonBody<PaperclipWebhookPayload>(await readBody(req));
 
-    if (!body.context?.issueId) {
-      json(res, { error: "Missing context.issueId" }, 400);
-      return;
-    }
-
     if (!ctx.config?.paperclip) {
       json(res, { error: "Paperclip integration not configured" }, 400);
       return;
     }
 
+    if (!ctx.heartbeat) {
+      json(res, { error: "Heartbeat not running" }, 503);
+      return;
+    }
+
     // Import dynamically to avoid circular deps at module load time
-    const { getIssue, getComments } = await import("./paperclip/client.js");
+    const { getIssue, getComments, getAssignedIssues } = await import("./paperclip/client.js");
     const { issueToTask } = await import("./paperclip/mapper.js");
 
-    const issue = await getIssue(ctx.config.paperclip, body.context.issueId);
-    const comments = await getComments(ctx.config.paperclip, body.context.issueId);
-    const task = issueToTask(issue, comments);
-
-    // Emit task event into the heartbeat system if running
-    if (ctx.heartbeat) {
-      // Access internal state via the heartbeat's onEvent pattern
-      // The heartbeat will process this task through its normal pipeline
+    if (body.context?.issueId) {
+      // Specific issue wakeup — fetch, convert, and inject into heartbeat pipeline
+      const issue = await getIssue(ctx.config.paperclip, body.context.issueId);
+      const comments = await getComments(ctx.config.paperclip, body.context.issueId);
+      const task = issueToTask(issue, comments);
+      ctx.heartbeat.handleTaskEvent(task);
       json(res, { ok: true, taskId: task.id, status: task.status });
     } else {
-      json(res, { error: "Heartbeat not running" }, 503);
+      // General heartbeat — poll for all assigned issues and inject each
+      const issues = await getAssignedIssues(ctx.config.paperclip);
+      const tasks = issues.map((issue) => issueToTask(issue));
+      for (const task of tasks) {
+        ctx.heartbeat.handleTaskEvent(task);
+      }
+      json(res, { ok: true, tasks: tasks.length, wakeReason: body.context?.wakeReason ?? "heartbeat" });
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

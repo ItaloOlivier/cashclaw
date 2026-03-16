@@ -469,7 +469,7 @@ export function createHeartbeat(
     appendLog("Heartbeat stopped");
   }
 
-  return { state, start, stop, onEvent };
+  return { state, start, stop, onEvent, handleTaskEvent };
 }
 
 export type Heartbeat = ReturnType<typeof createHeartbeat>;

@@ -18,4 +18,8 @@ EXPOSE 3777
 
 # Persistent storage: set CASHCLAW_CONFIG_DIR to Railway volume mount path
 
-CMD ["node", "dist/index.js"]
+# Entrypoint handles config auto-init from CASHCLAW_INIT_CONFIG env var
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+CMD ["/app/entrypoint.sh"]
