@@ -139,6 +139,10 @@ export function loadConfig(): CashClawConfig | null {
     const raw = fs.readFileSync(CONFIG_PATH, "utf-8");
     const parsed = JSON.parse(raw) as CashClawConfig;
     if (!parsed || typeof parsed !== "object") return null;
+    // Allow LLM_API_KEY env var to override config file (useful for Railway deployments)
+    if (process.env.LLM_API_KEY && parsed.llm) {
+      parsed.llm.apiKey = process.env.LLM_API_KEY;
+    }
     const errors = validateConfig(parsed);
     if (errors.length > 0) {
       console.error(`Config validation warnings: ${errors.join("; ")}`);
