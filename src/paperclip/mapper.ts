@@ -10,7 +10,7 @@ export function mapStatus(paperclipStatus: string): TaskStatus {
   switch (paperclipStatus) {
     case "backlog":
     case "todo":
-      return "requested";     // Task needs quoting/acceptance
+      return "accepted";      // Paperclip tasks are pre-assigned — skip quoting, go straight to work
     case "in_progress":
       return "accepted";      // Task accepted, needs work
     case "in_review":
@@ -44,6 +44,7 @@ export function issueToTask(
     clientAddress: issue.createdByUserId ?? issue.createdByAgentId ?? "",
     task: `${issue.title}${issue.description ? `\n\n${issue.description}` : ""}`,
     status: mapStatus(issue.status),
+    source: "paperclip",
     messages: messages.length > 0 ? messages : undefined,
     // Paperclip issues don't have ETH pricing — these stay undefined
   };

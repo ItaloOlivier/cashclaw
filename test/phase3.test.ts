@@ -3,12 +3,12 @@ import { mapStatus, issueToTask, toPaperclipStatus } from "../src/paperclip/mapp
 import type { PaperclipIssue, PaperclipComment } from "../src/paperclip/types.js";
 
 describe("mapStatus", () => {
-  it("should map 'todo' to 'requested'", () => {
-    expect(mapStatus("todo")).toBe("requested");
+  it("should map 'todo' to 'accepted' (Paperclip tasks skip quoting)", () => {
+    expect(mapStatus("todo")).toBe("accepted");
   });
 
-  it("should map 'backlog' to 'requested'", () => {
-    expect(mapStatus("backlog")).toBe("requested");
+  it("should map 'backlog' to 'accepted' (Paperclip tasks skip quoting)", () => {
+    expect(mapStatus("backlog")).toBe("accepted");
   });
 
   it("should map 'in_progress' to 'accepted'", () => {
@@ -57,7 +57,7 @@ describe("issueToTask", () => {
     expect(task.clientAddress).toBe("user-1");
     expect(task.task).toContain("Build landing page");
     expect(task.task).toContain("responsive landing page");
-    expect(task.status).toBe("requested");
+    expect(task.status).toBe("accepted");
   });
 
   it("should handle issue without description", () => {

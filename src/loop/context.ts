@@ -3,10 +3,18 @@ import type { Task } from "../moltlaunch/types.js";
 export function buildTaskContext(task: Task): string {
   const parts = [
     `Task ID: ${task.id}`,
+    `Source: ${task.source ?? "moltlaunch"}`,
     `Status: ${task.status}`,
     `Client: ${task.clientAddress}`,
     `Description: ${task.task}`,
   ];
+
+  if (task.source === "paperclip") {
+    parts.push(
+      "\n⚠️ This is a Paperclip internal task — do NOT use quote_task, decline_task, or other marketplace tools.",
+      "Instead, do the work directly using your available tools (moltbook_read, moltbook_post, browse_page, etc.) and then call submit_work with the result.",
+    );
+  }
 
   if (task.budgetWei) {
     parts.push(`Client budget: ${task.budgetWei} wei`);

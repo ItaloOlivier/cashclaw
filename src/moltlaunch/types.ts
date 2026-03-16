@@ -11,12 +11,15 @@ export type TaskStatus =
   | "resolved"
   | "cancelled";
 
+export type TaskSource = "moltlaunch" | "paperclip" | "direct";
+
 export interface Task {
   id: string;
   agentId: string;
   clientAddress: string;
   task: string;
   status: TaskStatus;
+  source?: TaskSource;
 
   quotedPriceWei?: string;
   quotedAt?: number;

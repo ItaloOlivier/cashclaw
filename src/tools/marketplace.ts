@@ -90,9 +90,20 @@ export const submitWork: Tool = {
       required: ["task_id", "result"],
     },
   },
-  async execute(input) {
+  async execute(input, ctx) {
     const taskId = requireString(input, "task_id");
     const result = requireString(input, "result");
+
+    // Route to Paperclip if this is a Paperclip-sourced task (UUID format)
+    if (ctx.config.paperclip && taskId.includes("-") && taskId.length > 30) {
+      const { updateIssue } = await import("../paperclip/client.js");
+      await updateIssue(ctx.config.paperclip, taskId, {
+        status: "in_review",
+        comment: result,
+      });
+      return { success: true, data: `Submitted work to Paperclip for issue ${taskId}` };
+    }
+
     await cli.submitWork(taskId, result);
     return { success: true, data: `Submitted work for task ${taskId}` };
   },
