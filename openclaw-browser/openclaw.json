@@ -1,0 +1,15 @@
+{
+  "gateway": {
+    "port": 18789,
+    "bind": "custom",
+    "customBindHost": "0.0.0.0",
+    "tools": {
+      "allow": ["browser"]
+    }
+  },
+  "browser": {
+    "enabled": true,
+    "headless": true,
+    "noSandbox": true
+  }
+}

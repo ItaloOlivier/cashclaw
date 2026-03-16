@@ -59,6 +59,7 @@ export interface CashClawConfig {
   learningEnabled: boolean;
   studyIntervalMs: number;
   agentCashEnabled: boolean;
+  browserEnabled?: boolean;
   qaReviewEnabled?: boolean; // default true; set false to skip QA gate
   paperclip?: PaperclipIntegrationConfig;
   directClients?: Array<{
@@ -245,6 +246,11 @@ export function initConfig(opts: {
 
 export function getConfigDir(): string {
   return CONFIG_DIR;
+}
+
+/** Check if OpenClaw browser endpoint is configured */
+export function isBrowserAvailable(): boolean {
+  return Boolean(process.env.OPENCLAW_BROWSER_URL);
 }
 
 /** Check if AgentCash CLI wallet exists on disk */

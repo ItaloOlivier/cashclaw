@@ -13,6 +13,7 @@ interface FormState {
   autoWork: boolean;
   learningEnabled: boolean;
   agentCashEnabled: boolean;
+  browserEnabled: boolean;
   tone: PersonalityData["tone"];
   responseStyle: PersonalityData["responseStyle"];
   customInstructions: string;
@@ -36,6 +37,7 @@ function configToForm(c: ConfigData): FormState {
     autoWork: c.autoWork,
     learningEnabled: c.learningEnabled,
     agentCashEnabled: c.agentCashEnabled ?? false,
+    browserEnabled: c.browserEnabled ?? false,
     tone: c.personality?.tone ?? "professional",
     responseStyle: c.personality?.responseStyle ?? "concise",
     customInstructions: c.personality?.customInstructions ?? "",
@@ -111,6 +113,7 @@ export function Settings() {
         maxConcurrentTasks: form.maxTasks,
         learningEnabled: form.learningEnabled,
         agentCashEnabled: form.agentCashEnabled,
+        browserEnabled: form.browserEnabled,
         personality: {
           tone: form.tone,
           responseStyle: form.responseStyle,
@@ -312,6 +315,7 @@ export function Settings() {
               <Toggle label="Auto Work" description="Start work on accepted tasks" checked={form.autoWork} onChange={(v) => update("autoWork", v)} />
               <Toggle label="Learning" description="Run study sessions when idle" checked={form.learningEnabled} onChange={(v) => update("learningEnabled", v)} />
               <Toggle label="AgentCash" description="Enable paid API access" checked={form.agentCashEnabled} onChange={(v) => update("agentCashEnabled", v)} />
+              <Toggle label="Browser" description="Enable web browsing via OpenClaw" checked={form.browserEnabled} onChange={(v) => update("browserEnabled", v)} />
             </div>
           </Section>
 

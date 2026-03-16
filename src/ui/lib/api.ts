@@ -100,6 +100,7 @@ export interface ConfigData {
   personality?: PersonalityData;
   polling: PollingData;
   agentCashEnabled: boolean;
+  browserEnabled?: boolean;
 }
 
 export interface AgentCashBalance {

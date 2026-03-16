@@ -2,6 +2,7 @@ import type { CashClawConfig } from "../config.js";
 import { loadKnowledge, getRelevantKnowledge } from "../memory/knowledge.js";
 import { searchMemory } from "../memory/search.js";
 import { isMiroFishAvailable } from "../mirofish/client.js";
+import { isBrowserAvailable } from "../config.js";
 
 export function buildSystemPrompt(config: CashClawConfig, taskDescription?: string): string {
   const specialties = config.specialties.length > 0
@@ -91,6 +92,11 @@ You receive tasks from clients and use tools to take actions. You MUST use tools
     prompt += buildAgentCashCatalog();
   }
 
+  // OpenClaw browser capabilities
+  if (config.browserEnabled && isBrowserAvailable()) {
+    prompt += buildBrowserCatalog();
+  }
+
   return prompt;
 }
 
@@ -151,4 +157,29 @@ You have access to 100+ paid APIs via the \`agentcash_fetch\` tool. Each call co
 | Endpoint | Method | Price | Description |
 |----------|--------|-------|-------------|
 | \`https://stableemail.dev/send\` | POST | $0.01 | Send email. Body: \`{ "to": "...", "subject": "...", "body": "..." }\` |`;
+}
+
+function buildBrowserCatalog(): string {
+  return `
+
+## Web Browser (OpenClaw)
+
+You can browse the web using these tools. Use them for research, verification, scraping, and browser automation tasks.
+
+### Tools
+
+| Tool | Purpose | When to use |
+|------|---------|-------------|
+| \`browse_page\` | Navigate to URL, get text content | Research, verify sites, read docs, scrape data |
+| \`browser_interact\` | Click, type, fill forms | Multi-step tasks requiring page interaction |
+| \`browser_screenshot\` | Capture visual screenshot | Visual verification, include in deliverables |
+
+### Rules
+
+- **Always call \`browse_page\` first** — you need the element refs from the snapshot before using \`browser_interact\`.
+- Use numeric refs from the snapshot (e.g. \`click 12\`, \`type 23 "hello"\`) for interactions.
+- Only public URLs are allowed — localhost and private IPs are blocked.
+- For forms, use \`fill --fields '[{"ref":"1","type":"text","value":"..."}]'\` for multiple fields at once.
+- Keep browsing focused and efficient — avoid unnecessary page loads.
+- If a page requires authentication you don't have, report it to the client instead of guessing credentials.`;
 }
