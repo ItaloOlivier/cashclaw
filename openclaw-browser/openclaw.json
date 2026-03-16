@@ -10,6 +10,7 @@
   "browser": {
     "enabled": true,
     "headless": true,
-    "noSandbox": true
+    "noSandbox": true,
+    "executablePath": "/usr/bin/chromium"
   }
 }
