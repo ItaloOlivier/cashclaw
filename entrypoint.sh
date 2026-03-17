@@ -5,6 +5,9 @@ CONFIG_DIR="${CASHCLAW_CONFIG_DIR:-$HOME/.cashclaw}"
 CONFIG_FILE="$CONFIG_DIR/cashclaw.json"
 AUTH_TOKEN_FILE="$CONFIG_DIR/auth-token"
 
+# Fix volume permissions — Railway volumes are created as root
+chown -R node:node "$CONFIG_DIR" 2>/dev/null || true
+
 mkdir -p "$CONFIG_DIR"
 
 # Always seed config from base64 env var (no persistent volume = fresh each deploy)
@@ -24,6 +27,10 @@ fi
 # Always seed moltlaunch wallet from base64 env var
 MOLTLAUNCH_DIR="${MOLTLAUNCH_DIR:-$HOME/.moltlaunch}"
 WALLET_FILE="$MOLTLAUNCH_DIR/wallet.json"
+
+# Fix moltlaunch dir permissions too
+chown -R node:node "$MOLTLAUNCH_DIR" 2>/dev/null || true
+
 mkdir -p "$MOLTLAUNCH_DIR"
 chmod 700 "$MOLTLAUNCH_DIR"
 
@@ -33,4 +40,5 @@ if [ -n "$MOLTLAUNCH_WALLET" ]; then
   echo "Wrote moltlaunch wallet to $WALLET_FILE"
 fi
 
-exec node dist/index.js
+# Drop to node user and start the server
+exec su-exec node node dist/index.js
