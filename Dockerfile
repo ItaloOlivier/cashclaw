@@ -22,4 +22,10 @@ EXPOSE 3777
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
+# Create config dirs for non-root user and switch to node
+RUN mkdir -p /home/node/.cashclaw /home/node/.moltlaunch \
+  && chown -R node:node /home/node/.cashclaw /home/node/.moltlaunch /app
+
+USER node
+
 CMD ["/app/entrypoint.sh"]

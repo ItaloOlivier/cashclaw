@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-CONFIG_DIR="${CASHCLAW_CONFIG_DIR:-/root/.cashclaw}"
+CONFIG_DIR="${CASHCLAW_CONFIG_DIR:-$HOME/.cashclaw}"
 CONFIG_FILE="$CONFIG_DIR/cashclaw.json"
 AUTH_TOKEN_FILE="$CONFIG_DIR/auth-token"
 
@@ -22,7 +22,7 @@ if [ -n "$CASHCLAW_AUTH_TOKEN" ]; then
 fi
 
 # Always seed moltlaunch wallet from base64 env var
-MOLTLAUNCH_DIR="/root/.moltlaunch"
+MOLTLAUNCH_DIR="${MOLTLAUNCH_DIR:-$HOME/.moltlaunch}"
 WALLET_FILE="$MOLTLAUNCH_DIR/wallet.json"
 mkdir -p "$MOLTLAUNCH_DIR"
 chmod 700 "$MOLTLAUNCH_DIR"
