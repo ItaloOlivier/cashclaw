@@ -279,8 +279,41 @@ export function createHeartbeat(
           });
         }
 
-        // Report costs to Paperclip if configured
-        if (config.paperclip && result.usage) {
+        // Report results and costs to Paperclip if this is a Paperclip-sourced task
+        if (config.paperclip && task.source === "paperclip") {
+          // Post loop result as a comment and update issue status
+          const submitToolCall = result.toolCalls.find((tc) => tc.name === "submit_work");
+          const summary = submitToolCall
+            ? `Work submitted via submit_work (${result.turns} turns, ${toolNames})`
+            : `Loop completed in ${result.turns} turn(s). Tools used: [${toolNames}].\n\n${result.reasoning.slice(0, 2000)}`;
+          const newStatus = submitToolCall ? "in_review" : "in_progress";
+
+          paperclipClient.updateIssue(config.paperclip, task.id, {
+            status: newStatus,
+            comment: summary,
+          }).catch((err) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            emit({ type: "error", taskId: task.id, message: `Paperclip update failed: ${msg}` });
+          });
+
+          // Report costs
+          if (result.usage) {
+            const costCents = Math.round(
+              estimateCostUsd(config.llm.model, result.usage.inputTokens, result.usage.outputTokens) * 100,
+            );
+            paperclipClient.reportCost(config.paperclip, {
+              agentId: config.paperclip.agentId,
+              issueId: task.id,
+              provider: config.llm.provider,
+              model: config.llm.model,
+              inputTokens: result.usage.inputTokens,
+              outputTokens: result.usage.outputTokens,
+              costCents,
+              occurredAt: new Date().toISOString(),
+            }).catch(() => { /* non-fatal */ });
+          }
+        } else if (config.paperclip && result.usage) {
+          // Non-Paperclip tasks: just report costs
           const costCents = Math.round(
             estimateCostUsd(config.llm.model, result.usage.inputTokens, result.usage.outputTokens) * 100,
           );
