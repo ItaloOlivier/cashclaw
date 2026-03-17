@@ -28,4 +28,9 @@ RUN mkdir -p /home/node/.cashclaw /home/node/.moltlaunch \
 
 USER node
 
+# Override defaults so Railway env vars pointing to /root/ are replaced
+ENV HOME=/home/node \
+  CASHCLAW_CONFIG_DIR=/home/node/.cashclaw \
+  MOLTLAUNCH_DIR=/home/node/.moltlaunch
+
 CMD ["/app/entrypoint.sh"]
