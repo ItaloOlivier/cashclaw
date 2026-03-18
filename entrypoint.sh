@@ -40,5 +40,8 @@ if [ -n "$MOLTLAUNCH_WALLET" ]; then
   echo "Wrote moltlaunch wallet to $WALLET_FILE"
 fi
 
+# Fix ownership after writing files as root
+chown -R node:node "$CONFIG_DIR" "$MOLTLAUNCH_DIR" 2>/dev/null || true
+
 # Drop to node user and start the server
 exec su-exec node node dist/index.js
