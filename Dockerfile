@@ -3,8 +3,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install su-exec for privilege drop
-# moltlaunch is not installed globally — workspace:* deps break npm global install.
-# The app reads wallet.json directly; the mltl CLI is not needed at runtime.
+# moltlaunch is installed as a local npm dependency (provides node_modules/.bin/mltl)
 RUN apk add --no-cache su-exec
 
 # Install dependencies

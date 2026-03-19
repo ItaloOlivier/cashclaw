@@ -9,9 +9,20 @@ const execFileAsync = promisify(execFile);
 
 // Resolve mltl binary: prefer local node_modules, fall back to global PATH
 function resolveMltlBin(): string {
-  // Check node_modules/.bin/mltl relative to project root
-  const localBin = path.join(import.meta.dirname ?? __dirname, "../../node_modules/.bin/mltl");
-  if (fs.existsSync(localBin)) return localBin;
+  // After tsup bundles everything into dist/index.js, import.meta.dirname
+  // is one level deep (e.g. /app/dist), not two (e.g. /app/src/moltlaunch).
+  // Check multiple candidate paths to handle both dev and production layouts.
+  const candidates = [
+    // Production (bundled): dist/ → project root
+    path.join(import.meta.dirname ?? __dirname, "../node_modules/.bin/mltl"),
+    // Dev (unbundled): src/moltlaunch/ → project root
+    path.join(import.meta.dirname ?? __dirname, "../../node_modules/.bin/mltl"),
+    // CWD-based fallback (works regardless of bundling)
+    path.join(process.cwd(), "node_modules/.bin/mltl"),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
   // Fall back to global PATH
   return "mltl";
 }
