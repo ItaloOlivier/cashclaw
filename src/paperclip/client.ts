@@ -19,6 +19,7 @@ async function paperclipFetch<T>(
   method: string,
   path: string,
   body?: unknown,
+  extraHeaders?: Record<string, string>,
 ): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -27,6 +28,7 @@ async function paperclipFetch<T>(
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${config.apiKey}`,
+      ...extraHeaders,
     };
 
     const res = await fetch(`${config.apiUrl}/api${path}`, {
@@ -52,12 +54,13 @@ export async function getAssignedIssues(
   config: PaperclipConfig,
 ): Promise<PaperclipIssue[]> {
   const statuses = "todo,in_progress,blocked";
-  const result = await paperclipFetch<{ issues: PaperclipIssue[] }>(
+  // API returns a plain array (not wrapped in { issues: [...] })
+  const result = await paperclipFetch<PaperclipIssue[]>(
     config,
     "GET",
     `/companies/${config.companyId}/issues?assigneeAgentId=${config.agentId}&status=${statuses}`,
   );
-  return result.issues ?? [];
+  return Array.isArray(result) ? result : [];
 }
 
 /** Get a single issue by ID */
@@ -73,12 +76,13 @@ export async function getComments(
   config: PaperclipConfig,
   issueId: string,
 ): Promise<PaperclipComment[]> {
-  const result = await paperclipFetch<{ comments: PaperclipComment[] }>(
+  // API returns a plain array (not wrapped in { comments: [...] })
+  const result = await paperclipFetch<PaperclipComment[]>(
     config,
     "GET",
     `/issues/${issueId}/comments`,
   );
-  return result.comments ?? [];
+  return Array.isArray(result) ? result : [];
 }
 
 /** Update issue status and/or add a comment */
@@ -88,10 +92,10 @@ export async function updateIssue(
   updates: { status?: string; comment?: string },
   runId?: string,
 ): Promise<void> {
-  const headers: Record<string, string> = {};
-  if (runId) headers["X-Paperclip-Run-Id"] = runId;
+  const extraHeaders: Record<string, string> = {};
+  if (runId) extraHeaders["X-Paperclip-Run-Id"] = runId;
 
-  await paperclipFetch<unknown>(config, "PATCH", `/issues/${issueId}`, updates);
+  await paperclipFetch<unknown>(config, "PATCH", `/issues/${issueId}`, updates, extraHeaders);
 }
 
 /** Post a comment on an issue */
